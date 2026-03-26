@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\Dbc\Schema;
 
-use Doctrine\DBAL\Schema\SchemaException;
+use Doctrine\DBAL\Schema\Exception\ColumnDoesNotExist;
 use Doctrine\DBAL\Schema\Table;
 
 class TableRestriction
@@ -20,12 +20,12 @@ class TableRestriction
      * @param string $columnName
      * @param mixed  $columnValue
      *
-     * @throws SchemaException
+     * @throws ColumnDoesNotExist
      */
     public function __construct(Table $table, string $columnName, mixed $columnValue)
     {
         if (!$table->hasColumn($columnName)) {
-            throw SchemaException::columnDoesNotExist($columnName, $table->getName());
+            throw ColumnDoesNotExist::new($columnName, $table->getName());
         }
 
         $this->table      = $table;
@@ -39,7 +39,7 @@ class TableRestriction
      * @param mixed  $columnValue
      *
      * @return self
-     * @throws SchemaException
+     * @throws ColumnDoesNotExist
      */
     public static function create(Table $table, string $columnName, mixed $columnValue): self
     {

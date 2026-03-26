@@ -7,7 +7,7 @@ namespace Jtl\Connector\Dbc;
 use Doctrine\DBAL\Exception;
 use Doctrine\DBAL\Schema\SchemaException;
 use Doctrine\DBAL\Schema\Table;
-use Doctrine\DBAL\Types\Type;
+use Doctrine\DBAL\Types\Types;
 
 class Table2Stub extends AbstractTable
 {
@@ -32,8 +32,8 @@ class Table2Stub extends AbstractTable
      */
     protected function createTableSchema(Table $tableSchema): void
     {
-        $tableSchema->addColumn(self::ID, Type::INTEGER, ['autoincrement' => true]);
-        $tableSchema->addColumn(self::A, Type::INTEGER, ['notnull' => false]);
+        $tableSchema->addColumn(self::ID, Types::INTEGER, ['autoincrement' => true]);
+        $tableSchema->addColumn(self::A, Types::INTEGER, ['notnull' => false]);
         $tableSchema->setPrimaryKey([self::ID]);
     }
 }

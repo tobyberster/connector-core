@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\Dbc\Query;
 
-use Doctrine\DBAL\DBALException;
 use Doctrine\DBAL\Exception;
+use Doctrine\DBAL\Exception as DBALException;
 use Doctrine\DBAL\Query\QueryException;
 use Doctrine\DBAL\Schema\SchemaException;
 use Jtl\Connector\Dbc\CoordinatesStub;
@@ -149,7 +149,7 @@ class QueryBuilderTest extends TestCase
         $qb->update($this->coordsTable->getTableName())
            ->set('z', ':z')
            ->setParameter('z', 10.5)
-           ->execute();
+           ->executeStatement();
 
         $datasets = $this->coordsTable->findAll();
         $this->assertEquals(10.5, $datasets[0]['z']); //@phpstan-ignore-line

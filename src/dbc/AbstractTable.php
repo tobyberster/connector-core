@@ -75,7 +75,7 @@ abstract class AbstractTable
     {
         $columnTypes = [];
         foreach ($this->getTableSchema()->getColumns() as $column) {
-            $columnTypes[$column->getName()] = $column->getType()->getName();
+            $columnTypes[$column->getName()] = Type::lookupName($column->getType());
         }
         return $columnTypes;
     }

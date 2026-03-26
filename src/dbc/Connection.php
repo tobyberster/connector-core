@@ -15,6 +15,14 @@ class Connection extends \Doctrine\DBAL\Connection
     protected array $tableRestrictions = [];
 
     /**
+     * @return void
+     */
+    public function clearTableRestrictions(): void
+    {
+        $this->tableRestrictions = [];
+    }
+
+    /**
      * @param TableRestriction $restriction
      *
      * @return $this
@@ -90,83 +98,56 @@ class Connection extends \Doctrine\DBAL\Connection
     }
 
     /**
-     * @phpstan-param string $tableExpression
-     *
-     * @param mixed    $tableExpression
+     * @param string   $table
      * @param mixed[]  $data
      * @param string[] $types
      *
-     * @return int
+     * @return int|string
      * @throws Exception
      * @throws DbcRuntimeException|\RuntimeException
-     * @noinspection PhpParameterNameChangedDuringInheritanceInspection
      */
-    public function insert(mixed $tableExpression, array $data, array $types = []): int
+    public function insert(string $table, array $data, array $types = []): int|string
     {
-        $return = parent::insert(
-            $tableExpression,
-            \array_merge($data, $this->getTableRestrictions($tableExpression)),
+        return parent::insert(
+            $table,
+            \array_merge($data, $this->getTableRestrictions($table)),
             $types
         );
-
-        if (!\is_numeric($return)) {
-            throw new RuntimeException('insert must return a numeric value.');
-        }
-
-        return (int)$return;
     }
 
     /**
-     * @phpstan-param string $tableExpression
-     *
-     * @param mixed    $tableExpression
+     * @param string   $table
      * @param mixed[]  $data
-     * @param mixed[]  $identifiers
+     * @param mixed[]  $criteria
      * @param string[] $types
      *
-     * @return int
+     * @return int|string
      * @throws Exception
      * @throws DbcRuntimeException|\RuntimeException
-     * @noinspection PhpParameterNameChangedDuringInheritanceInspection
      */
-    public function update(mixed $tableExpression, array $data, array $identifiers, array $types = []): int
+    public function update(string $table, array $data, array $criteria = [], array $types = []): int|string
     {
-        $restrictions = $this->getTableRestrictions($tableExpression);
+        $restrictions = $this->getTableRestrictions($table);
         $data         = \array_merge($data, $restrictions);
-        $identifiers  = \array_merge($identifiers, $restrictions);
+        $criteria     = \array_merge($criteria, $restrictions);
 
-        $return = parent::update($tableExpression, $data, $identifiers, $types);
-
-        if (!\is_numeric($return)) {
-            throw new RuntimeException('update must return a numeric value.');
-        }
-
-        return (int)$return;
+        return parent::update($table, $data, $criteria, $types);
     }
 
     /**
-     * @phpstan-param string $tableExpression
-     *
-     * @param mixed    $tableExpression
-     * @param mixed[]  $identifiers
+     * @param string   $table
+     * @param mixed[]  $criteria
      * @param string[] $types
      *
-     * @return int
+     * @return int|string
      * @throws Exception
      * @throws DbcRuntimeException|\RuntimeException
-     * @noinspection PhpParameterNameChangedDuringInheritanceInspection
      */
-    public function delete(mixed $tableExpression, array $identifiers, array $types = []): int
+    public function delete(string $table, array $criteria = [], array $types = []): int|string
     {
-        $restrictions = $this->getTableRestrictions($tableExpression);
-        $identifiers  = \array_merge($identifiers, $restrictions);
+        $restrictions = $this->getTableRestrictions($table);
+        $criteria     = \array_merge($criteria, $restrictions);
 
-        $return = parent::delete($tableExpression, $identifiers, $types);
-
-        if (!\is_numeric($return)) {
-            throw new RuntimeException('delete must return a numeric value.');
-        }
-
-        return (int)$return;
+        return parent::delete($table, $criteria, $types);
     }
 }

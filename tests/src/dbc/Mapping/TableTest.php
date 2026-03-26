@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\Dbc\Mapping;
 
-use Doctrine\DBAL\DBALException;
 use Doctrine\DBAL\Exception;
+use Doctrine\DBAL\Exception as DBALException;
 use Doctrine\DBAL\Exception\InvalidArgumentException;
-use Doctrine\DBAL\ForwardCompatibility\Result;
 use Doctrine\DBAL\Schema\SchemaException;
-use Doctrine\DBAL\Types\Type;
+use Doctrine\DBAL\Types\Types;
 use Jtl\Connector\Dbc\CoordinatesStub;
 use Jtl\Connector\Dbc\DbcRuntimeException;
 use Jtl\Connector\Dbc\TableStub;
@@ -81,12 +80,9 @@ class TableTest extends TestCase
         $table   = $this->coords->getTableSchema();
         $columns = $table->getColumns();
         $this->assertCount(3, $columns);
-        $this->assertArrayHasKey(CoordinatesStub::COL_X, $columns);
-        $this->assertEquals(CoordinatesStub::COL_X, $columns[CoordinatesStub::COL_X]->getName());
-        $this->assertArrayHasKey(CoordinatesStub::COL_Y, $columns);
-        $this->assertEquals(CoordinatesStub::COL_Y, $columns[CoordinatesStub::COL_Y]->getName());
-        $this->assertArrayHasKey(CoordinatesStub::COL_Z, $columns);
-        $this->assertEquals(CoordinatesStub::COL_Z, $columns[CoordinatesStub::COL_Z]->getName());
+        $this->assertEquals(CoordinatesStub::COL_X, $columns[0]->getName());
+        $this->assertEquals(CoordinatesStub::COL_Y, $columns[1]->getName());
+        $this->assertEquals(CoordinatesStub::COL_Z, $columns[2]->getName());
     }
 
     /**
@@ -106,9 +102,9 @@ class TableTest extends TestCase
         $this->assertArrayHasKey(CoordinatesStub::COL_X, $columns);
         $this->assertArrayHasKey(CoordinatesStub::COL_Y, $columns);
         $this->assertArrayHasKey(CoordinatesStub::COL_Z, $columns);
-        $this->assertEquals(Type::FLOAT, $columns[CoordinatesStub::COL_X]);
-        $this->assertEquals(Type::FLOAT, $columns[CoordinatesStub::COL_Y]);
-        $this->assertEquals(Type::FLOAT, $columns[CoordinatesStub::COL_Y]);
+        $this->assertEquals(Types::FLOAT, $columns[CoordinatesStub::COL_X]);
+        $this->assertEquals(Types::FLOAT, $columns[CoordinatesStub::COL_Y]);
+        $this->assertEquals(Types::FLOAT, $columns[CoordinatesStub::COL_Y]);
     }
 
     /**
@@ -146,11 +142,11 @@ class TableTest extends TestCase
     {
         $connection = $this->table->getDbManager()->getConnection();
         $result     = $connection->createQueryBuilder()
-                                 ->select($this->table->getColumnNames())
+                                 ->select(...$this->table->getColumnNames())
                                  ->from($this->table->getTableName())
-                                 ->execute();
+                                 ->executeQuery();
 
-        $rows = Validator::returnResult($result, 'result')->fetchAll();
+        $rows = $result->fetchAllAssociative();
 
         $this->assertCount(2, $rows);
         $mappedRow = $this->invokeMethodFromObject($this->table, 'convertToPhpValues', $rows[1]);
@@ -182,10 +178,10 @@ class TableTest extends TestCase
     {
         $connection = $this->table->getDbManager()->getConnection();
         $result     = $connection->createQueryBuilder()
-                                 ->select(['a', 'c'])
+                                 ->select('a', 'c')
                                  ->from($this->table->getTableName())
-                                 ->execute();
-        $rows       = Validator::returnResult($result, 'result')->fetchAll();
+                                 ->executeQuery();
+        $rows       = $result->fetchAllAssociative();
 
         $this->assertCount(2, $rows);
         /** @var array<string> $mappedRow */
@@ -212,10 +208,10 @@ class TableTest extends TestCase
     {
         $connection = $this->table->getDbManager()->getConnection();
         $result     = $connection->createQueryBuilder()
-                                 ->select($this->table->getColumnNames())
+                                 ->select(...$this->table->getColumnNames())
                                  ->from($this->table->getTableName())
-                                 ->execute();
-        $rows       = Validator::returnResult($result, 'result')->fetchAll(\PDO::FETCH_NUM);
+                                 ->executeQuery();
+        $rows       = $result->fetchAllNumeric();
 
         $this->assertCount(2, $rows);
         /** @var array<int|string, string> $mappedRow */
@@ -250,11 +246,11 @@ class TableTest extends TestCase
 
         $connection = $this->table->getDbManager()->getConnection();
         $result     = $connection->createQueryBuilder()
-                                 ->select(['a', 'c'])
+                                 ->select('a', 'c')
                                  ->from($this->table->getTableName())
-                                 ->execute();
+                                 ->executeQuery();
 
-        $rows = Validator::returnResult($result, 'result')->fetchAll(\PDO::FETCH_NUM);
+        $rows = $result->fetchAllNumeric();
 
         $this->assertCount(2, $rows);
         $this->invokeMethodFromObject($this->table, 'convertToPhpValues', $rows[1]);

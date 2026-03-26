@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\Dbc\Query;
 
-use Doctrine\DBAL\Query\Expression\CompositeExpression;
-use Doctrine\DBAL\Query\QueryException;
 use Jtl\Connector\Dbc\Connection;
 
 class QueryBuilder extends \Doctrine\DBAL\Query\QueryBuilder
@@ -14,6 +12,13 @@ class QueryBuilder extends \Doctrine\DBAL\Query\QueryBuilder
     protected array   $tableRestrictions = [];
     protected ?string $fromTable;
     protected ?string $fromAlias;
+
+    private string $currentType = 'select';
+
+    /** @var string[] */
+    private array $usedTables = [];
+
+    private bool $restrictionsApplied = false;
 
     /**
      * QueryBuilder constructor.
@@ -36,37 +41,93 @@ class QueryBuilder extends \Doctrine\DBAL\Query\QueryBuilder
     }
 
     /**
+     * @param string ...$expressions
+     * @return $this
+     */
+    public function select(string ...$expressions): static
+    {
+        $this->currentType = 'select';
+        return parent::select(...$expressions);
+    }
+
+    /**
+     * @param string $table
+     * @return $this
+     */
+    public function insert(string $table = ''): static
+    {
+        $this->currentType = 'insert';
+        $actualTable       = $this->fromTable ?? $table;
+        if ($actualTable !== '') {
+            $this->usedTables[] = $actualTable;
+        }
+        return parent::insert($actualTable !== '' ? $actualTable : $table);
+    }
+
+    /**
+     * @param string $table
+     * @return $this
+     */
+    public function update(string $table = ''): static
+    {
+        $this->currentType = 'update';
+        $actualTable       = $this->fromTable ?? $table;
+        $tableExpression   = $actualTable;
+        if ($this->fromTable !== null && $this->fromAlias !== null) {
+            $tableExpression = $actualTable . ' ' . $this->fromAlias;
+        }
+        if ($actualTable !== '') {
+            $this->usedTables[] = $actualTable;
+        }
+        return parent::update($tableExpression !== '' ? $tableExpression : $table);
+    }
+
+    /**
+     * @param string $table
+     * @return $this
+     */
+    public function delete(string $table = ''): static
+    {
+        $this->currentType = 'delete';
+        $actualTable       = $this->fromTable ?? $table;
+        $tableExpression   = $actualTable;
+        if ($this->fromTable !== null && $this->fromAlias !== null) {
+            $tableExpression = $actualTable . ' ' . $this->fromAlias;
+        }
+        if ($actualTable !== '') {
+            $this->usedTables[] = $actualTable;
+        }
+        return parent::delete($tableExpression !== '' ? $tableExpression : $table);
+    }
+
+    /**
+     * @param string      $table
+     * @param string|null $alias
+     * @return $this
+     */
+    public function from(string $table, ?string $alias = null): static
+    {
+        $actualTable = $this->fromTable ?? $table;
+        $actualAlias = $this->fromTable !== null ? $this->fromAlias : $alias;
+        $this->usedTables[] = $actualTable;
+        return parent::from($actualTable, $actualAlias);
+    }
+
+    /**
      * @return string
-     * @throws QueryException
      */
     public function getSQL(): string
     {
-        $fromTable = $this->fromTable;
-        if (!\is_null($fromTable)) {
-            $this->resetQueryPart('from');
-            switch ($this->getType()) {
-                case self::SELECT:
-                    $this->from($fromTable, $this->fromAlias);
-                    break;
-                case self::INSERT:
-                    $this->insert($fromTable);
-                    break;
-                case self::UPDATE:
-                    $this->update($fromTable, $this->fromAlias);
-                    break;
-                case self::DELETE:
-                    $this->delete($fromTable, $this->fromAlias);
-                    break;
+        if (!$this->restrictionsApplied) {
+            // For select queries with a locked fromTable that hasn't been added via from() yet
+            if ($this->fromTable !== null && $this->currentType === 'select' && empty($this->usedTables)) {
+                $this->from($this->fromTable, $this->fromAlias);
             }
-        }
 
-        /** @var array<array<string, string>|string> $queryPart */
-        $queryPart = $this->getQueryPart('from');
-        foreach ($queryPart as $table) {
-            if (!$table) {
-                continue;
+            foreach (\array_unique($this->usedTables) as $table) {
+                $this->assignTableRestrictions($table);
             }
-            $this->assignTableRestrictions(\is_array($table) ? $table['table'] : $table);
+            $this->restrictionsApplied = true;
         }
 
         return parent::getSQL();
@@ -81,20 +142,12 @@ class QueryBuilder extends \Doctrine\DBAL\Query\QueryBuilder
     {
         if (isset($this->tableRestrictions[$table]) && \is_array($this->tableRestrictions[$table])) {
             foreach ($this->tableRestrictions[$table] as $column => $value) {
-                $id    = 'glob_id_' . $column;
-                $where = $this->getQueryPart('where');
+                $id = 'glob_id_' . $column;
                 $this->setParameter($id, $value);
                 $this->setValue($column, ':' . $id);
                 $this->set($column, ':' . $id);
                 $whereCondition = $column . ' = :' . $id;
-
-                if (
-                    !$where instanceof CompositeExpression
-                    || $where->getType() !== CompositeExpression::TYPE_AND
-                    || !\str_contains((string)$where, $whereCondition)
-                ) {
-                    $this->andWhere($whereCondition);
-                }
+                $this->andWhere($whereCondition);
             }
         }
     }

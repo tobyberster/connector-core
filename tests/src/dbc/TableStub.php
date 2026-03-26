@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\Dbc;
 
-use Doctrine\DBAL\DBALException;
 use Doctrine\DBAL\Exception;
-use Doctrine\DBAL\ForwardCompatibility\Result;
+use Doctrine\DBAL\Exception as DBALException;
 use Doctrine\DBAL\Schema\SchemaException;
 use Doctrine\DBAL\Schema\Table;
-use Doctrine\DBAL\Types\Type;
+use Doctrine\DBAL\Types\Types;
 
 class TableStub extends AbstractTable
 {
@@ -55,16 +54,12 @@ class TableStub extends AbstractTable
             $columns = $this->getColumnNames();
         }
 
-        $stmt = $this->createQueryBuilder()->select($columns)
+        $stmt = $this->createQueryBuilder()->select(...$columns)
                      ->from($this->getTableName())
-                     ->execute();
-
-        if ($stmt instanceof Result === false) {
-            throw new \RuntimeException('$stmt must be instance of ' . Result::class);
-        }
+                     ->executeQuery();
 
         /** @var array<int, array<string>> $result */
-        $result = $stmt->fetchAll($fetchType);
+        $result = $fetchType === \PDO::FETCH_NUM ? $stmt->fetchAllNumeric() : $stmt->fetchAllAssociative();
 
         return $this->convertAllToPhpValues($result);
     }
@@ -86,7 +81,7 @@ class TableStub extends AbstractTable
             $columns = $this->getColumnNames();
         }
 
-        $qb = $this->createQueryBuilder()->select($columns)
+        $qb = $this->createQueryBuilder()->select(...$columns)
                    ->from($this->getTableName());
 
         foreach ($identifier as $column => $value) {
@@ -94,13 +89,10 @@ class TableStub extends AbstractTable
                ->setParameter($column, $value);
         }
 
-        $stmt = $qb->execute();
-        if ($stmt instanceof Result === false) {
-            throw new \RuntimeException('$stmt must be instance of ' . Result::class);
-        }
+        $stmt = $qb->executeQuery();
 
         /** @var array<int, array<string>> $result */
-        $result = $stmt->fetchAll($fetchType);
+        $result = $fetchType === \PDO::FETCH_NUM ? $stmt->fetchAllNumeric() : $stmt->fetchAllAssociative();
 
         return $this->convertAllToPhpValues($result);
     }
@@ -114,10 +106,10 @@ class TableStub extends AbstractTable
      */
     protected function createTableSchema(Table $tableSchema): void
     {
-        $tableSchema->addColumn(self::ID, Type::INTEGER, ['autoincrement' => true]);
-        $tableSchema->addColumn(self::A, Type::INTEGER, ['notnull' => false]);
-        $tableSchema->addColumn(self::B, Type::STRING, ['length' => 64]);
-        $tableSchema->addColumn(self::C, Type::DATETIME_IMMUTABLE);
+        $tableSchema->addColumn(self::ID, Types::INTEGER, ['autoincrement' => true]);
+        $tableSchema->addColumn(self::A, Types::INTEGER, ['notnull' => false]);
+        $tableSchema->addColumn(self::B, Types::STRING, ['length' => 64]);
+        $tableSchema->addColumn(self::C, Types::DATETIME_IMMUTABLE);
         $tableSchema->setPrimaryKey([self::ID]);
     }
 }

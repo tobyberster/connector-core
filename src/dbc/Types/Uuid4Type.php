@@ -6,8 +6,8 @@ namespace Jtl\Connector\Dbc\Types;
 
 use Doctrine\DBAL\Exception;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
-use Doctrine\DBAL\Platforms\MySqlPlatform;
-use Doctrine\DBAL\Platforms\SqlitePlatform;
+use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Doctrine\DBAL\Types\ConversionException;
 use Doctrine\DBAL\Types\Type;
 
@@ -57,55 +57,25 @@ class Uuid4Type extends Type
     {
         $converted = \hex2bin(\str_replace('-', '', $value));
         if ($converted === false) {
-            throw ConversionException::conversionFailedInvalidType((string)$value, $this->getName(), ['UUIDv4 string']);
+            throw new ConversionException(\sprintf('Could not convert value "%s" to type "%s". Expected UUIDv4 string.', (string)$value, self::NAME));
         }
 
         return $converted;
     }
 
     /**
-     * @return string
-     */
-    public function getName(): string
-    {
-        return self::NAME;
-    }
-
-    /**
-     * Modifies the SQL expression (identifier, parameter) to convert to a PHP value.
-     *
-     * @phpstan-param string           $sqlExpr
-     * @phpstan-param AbstractPlatform $platform
-     *
-     * @param mixed $sqlExpr
-     * @param mixed $platform
+     * @param string           $sqlExpr
+     * @param AbstractPlatform $platform
      *
      * @return string
      */
-    public function convertToPHPValueSQL(mixed $sqlExpr, mixed $platform): string
+    public function convertToPHPValueSQL(string $sqlExpr, AbstractPlatform $platform): string
     {
-        if ($platform instanceof MySqlPlatform || $platform instanceof SqlitePlatform) {
-            return $platform->getLowerExpression(\sprintf('HEX(%s)', $sqlExpr));
+        if ($platform instanceof AbstractMySQLPlatform || $platform instanceof SQLitePlatform) {
+            return \sprintf('LOWER(HEX(%s))', $sqlExpr);
         }
 
         return $sqlExpr;
     }
 
-    /**
-     * @param AbstractPlatform $platform
-     *
-     * @return bool
-     */
-    public function requiresSQLCommentHint(AbstractPlatform $platform): bool
-    {
-        return true;
-    }
-
-    /**
-     * @return bool
-     */
-    public function canRequireSQLConversion(): bool
-    {
-        return true;
-    }
 }

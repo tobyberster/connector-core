@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\MappingTables;
 
-use Doctrine\DBAL\ForwardCompatibility\Result;
+use Doctrine\DBAL\Result;
 use Jtl\Connector\Dbc\DbcRuntimeException;
 
 class Validator
@@ -13,7 +13,7 @@ class Validator
      * @param mixed       $value
      * @param string|null $name
      *
-     * @return Result<mixed>
+     * @return Result
      * @throws DbcRuntimeException
      */
     public static function returnResult(mixed $value, ?string $name = null): Result

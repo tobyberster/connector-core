@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Jtl\Connector\Dbc;
 
 use Doctrine\DBAL\Configuration;
-use Doctrine\DBAL\DBALException;
 use Doctrine\DBAL\DriverManager;
-use Doctrine\DBAL\Exception;
+use Doctrine\DBAL\Exception as DBALException;
 use Doctrine\DBAL\Schema\AbstractSchemaManager;
+use Doctrine\DBAL\Schema\Comparator;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\SchemaException;
 use Doctrine\DBAL\Schema\Table;
@@ -120,7 +120,7 @@ class DbManager
      * @return string[]
      * @throws DBALException
      * @throws DbcRuntimeException
-     * @throws Exception
+     * @throws DBALException
      * @throws SchemaException
      * @throws DbcRuntimeException|RuntimeException
      */
@@ -129,14 +129,14 @@ class DbManager
         /** @var Configuration $configuration */
         $configuration = $this->connection->getConfiguration();
         /** @var AbstractSchemaManager $schemaManager */
-        $schemaManager              = $this->connection->getSchemaManager();
+        $schemaManager              = $this->connection->createSchemaManager();
         $originalSchemaAssetsFilter = $configuration->getSchemaAssetsFilter();
         $configuration->setSchemaAssetsFilter($this->createSchemaAssetsFilterCallback());
-        $fromSchema       = $schemaManager->createSchema();
-        $updateStatements = $fromSchema->getMigrateToSql(
-            new Schema($this->getSchemaTables()),
-            $this->connection->getDatabasePlatform()
-        );
+        $fromSchema       = $schemaManager->introspectSchema();
+        $toSchema         = new Schema($this->getSchemaTables());
+        $comparator       = $schemaManager->createComparator();
+        $schemaDiff       = $comparator->compareSchemas($fromSchema, $toSchema);
+        $updateStatements = $this->connection->getDatabasePlatform()->getAlterSchemaSQL($schemaDiff);
         $configuration->setSchemaAssetsFilter($originalSchemaAssetsFilter);
         return $updateStatements;
     }
@@ -163,7 +163,7 @@ class DbManager
     {
         $this->connection->transactional(function ($connection): void {
             foreach ($this->getSchemaUpdates() as $ddl) {
-                $connection->executeQuery($ddl);
+                $connection->executeStatement($ddl);
             }
         });
     }

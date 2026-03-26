@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\MappingTables;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\DBALException;
 use Doctrine\DBAL\Exception;
+use Doctrine\DBAL\Exception as DBALException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
-use Doctrine\DBAL\Result;
 use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\SchemaException;
 use Doctrine\DBAL\Schema\Table;
@@ -118,12 +118,13 @@ abstract class AbstractTable extends AbstractDbcTable implements TableInterface
         foreach ($this->extractEndpoint($endpoint) as $column => $value) {
             if (\in_array($column, $primaryColumnNames, true)) {
                 $qb->andWhere($column . ' = :' . $column)
-                   ->setParameter($column, $value, $this->endpointColumns[$column]->getColumn()->getType()->getName());
+                   ->setParameter($column, $value, Type::lookupName($this->endpointColumns[$column]->getColumn()->getType()));
             }
         }
 
-        $hostId = $qb->execute();
-        if (($hostId instanceof Result) && \is_numeric(($id = $hostId->fetchOne()))) {
+        $hostId = $qb->executeQuery();
+        $id = $hostId->fetchOne();
+        if (\is_numeric($id)) {
             return (int)$id;
         }
 
@@ -250,11 +251,8 @@ abstract class AbstractTable extends AbstractDbcTable implements TableInterface
      */
     public function getEndpoint(int $hostId, ?int $type = null): ?string
     {
-        $endpointData = $this->createEndpointIdQuery($hostId, $type)->execute();
-        if (!($endpointData instanceof Result)) {
-            throw new \RuntimeException('$endpoint data must be an Result - object.');
-        }
-        $endpointData = $endpointData->fetch();
+        $endpointData = $this->createEndpointIdQuery($hostId, $type)->executeQuery();
+        $endpointData = $endpointData->fetchAssociative();
 
         if (\is_array($endpointData)) {
             return $this->buildEndpoint($endpointData);
@@ -283,7 +281,7 @@ abstract class AbstractTable extends AbstractDbcTable implements TableInterface
         $columnExpressions = $this->getEndpointColumnExpressions();
 
         $qb = $this->createQueryBuilder()
-                   ->select($columnExpressions)
+                   ->select(...$columnExpressions)
                    ->from($this->getTableName())
                    ->andWhere(\sprintf('%s = :hostId', self::HOST_ID))
                    ->setParameter('hostId', $hostId);
@@ -417,7 +415,7 @@ abstract class AbstractTable extends AbstractDbcTable implements TableInterface
                             ->setParameter(
                                 $column,
                                 $value,
-                                $primaryColumns[\array_search($column, $primaryColumnNames)]->getType()->getName()
+                                Type::lookupName($primaryColumns[\array_search($column, $primaryColumnNames)]->getType())
                             );
                     }
                 }
@@ -433,25 +431,7 @@ abstract class AbstractTable extends AbstractDbcTable implements TableInterface
                ->setParameter(self::IDENTITY_TYPE, $type, Types::INTEGER);
         }
 
-        return $this->returnInt($qb->execute(), __FUNCTION__);
-    }
-
-    /**
-     * @param mixed  $value
-     * @param string $methodName
-     *
-     * @return int
-     * @throws \RuntimeException
-     */
-    private function returnInt(mixed $value, string $methodName): int
-    {
-        if (!\is_int($value)) {
-            throw new \RuntimeException(
-                \sprintf('%s must return an integer.', $methodName)
-            );
-        }
-
-        return $value;
+        return (int)$qb->executeStatement();
     }
 
     /**
@@ -479,7 +459,7 @@ abstract class AbstractTable extends AbstractDbcTable implements TableInterface
             }
         }
 
-        return $this->returnInt($qb->execute(), __FUNCTION__);
+        return (int)$qb->executeStatement();
     }
 
     /**
@@ -509,11 +489,8 @@ abstract class AbstractTable extends AbstractDbcTable implements TableInterface
         }
 
         $result = $this->createFindQuery($where, $parameters, $orderBy, $limit, $offset, $type)
-                       ->select($dbPlatform->getCountExpression('*'))
-                       ->execute();
-        if ($result instanceof Result === false) {
-            throw new \RuntimeException('$result must be instance of Result.');
-        }
+                       ->select('COUNT(*)')
+                       ->executeQuery();
         $result = $result->fetchOne();
 
         return \is_numeric($result) ? (int)$result : 0;
@@ -606,17 +583,13 @@ abstract class AbstractTable extends AbstractDbcTable implements TableInterface
         ?int  $type = null
     ): array {
         $stmt = $this->createFindQuery($where, $parameters, $orderBy, $limit, $offset, $type)
-                     ->select($this->getEndpointColumnExpressions())
-                     ->execute();
-
-        if ($stmt instanceof Result === false) {
-            throw new \RuntimeException('$stmt must be instance of Result.');
-        }
+                     ->select(...$this->getEndpointColumnExpressions())
+                     ->executeQuery();
 
         //@phpstan-ignore-next-line
         return \array_map(function (array $data): string {
             return $this->buildEndpoint($data);
-        }, $stmt->fetchAll());
+        }, $stmt->fetchAllAssociative());
     }
 
     /**
@@ -661,7 +634,7 @@ abstract class AbstractTable extends AbstractDbcTable implements TableInterface
                                  ->select($concatExpression)
                                  ->from($this->getTableName())
                                  ->where(
-                                     $this->getConnection()->getExpressionBuilder()->in(
+                                     $this->getConnection()->createExpressionBuilder()->in(
                                          $concatExpression,
                                          ':preparedEndpoints'
                                      )
@@ -669,14 +642,11 @@ abstract class AbstractTable extends AbstractDbcTable implements TableInterface
                                  ->setParameter(
                                      'preparedEndpoints',
                                      \array_keys($preparedEndpoints),
-                                     Connection::PARAM_STR_ARRAY
+                                     ArrayParameterType::STRING
                                  );
 
-        $fetchedEndpoints = $qb->execute();
-        if ($fetchedEndpoints instanceof Result === false) {
-            throw new \RuntimeException('$fetchedEndpoints must be instance of Result.');
-        }
-        $fetchedEndpoints = $fetchedEndpoints->fetchAll(\PDO::FETCH_COLUMN);
+        $fetchedEndpoints = $qb->executeQuery();
+        $fetchedEndpoints = $fetchedEndpoints->fetchFirstColumn();
         if (\is_array($fetchedEndpoints) && !empty($fetchedEndpoints)) {
             foreach ($preparedEndpoints as $prepared => $endpoint) {
                 if (\in_array($prepared, $fetchedEndpoints)) {

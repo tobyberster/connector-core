@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\MappingTables;
 
-use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Exception as DBALException;
 use Exception;
 use Jtl\Connector\Dbc\DbcRuntimeException;
 use PHPUnit\Framework\ExpectationFailedException;

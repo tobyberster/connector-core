@@ -11,7 +11,7 @@ use DI\Definition\Exception\InvalidDefinition;
 use DI\DependencyException;
 use DI\NotFoundException;
 use Doctrine\Common\Annotations\AnnotationException;
-use Doctrine\Common\Annotations\AnnotationRegistry;
+
 use Jawira\CaseConverter\CaseConverterException;
 use JMS\Serializer\Exception\LogicException;
 use JMS\Serializer\Exception\NotAcceptableException;
@@ -183,8 +183,6 @@ class Application
         if (!\is_dir($connectorDir)) {
             throw ApplicationException::connectorDirNotExists($connectorDir);
         }
-        AnnotationRegistry::registerLoader('class_exists');
-
         if ($configSchema !== null && $config !== null) {
             if ($config instanceof ConfigSchemaConfigInterface) {
                 $config->setConfigSchema($configSchema);
@@ -210,7 +208,6 @@ class Application
         $this->config       = $config;
         $this->configSchema = $configSchema;
         $this->container    = (new ContainerBuilder())
-            ->useAnnotations(true)
             ->useAutowiring(true)
             ->build();
 
@@ -1066,9 +1063,7 @@ class Application
         $messages[]         = $ex->getMessage();
         $reflectionClass    = new ReflectionClass($ex);
         $reflectionProperty = $reflectionClass->getProperty('message');
-        $reflectionProperty->setAccessible(true);
         $reflectionProperty->setValue($ex, \implode(' | ', $messages));
-        $reflectionProperty->setAccessible(false);
     }
 
     /**

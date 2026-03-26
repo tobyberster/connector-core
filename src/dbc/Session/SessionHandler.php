@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Jtl\Connector\Dbc\Session;
 
 use DateTimeImmutable;
-use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Exception as DBALException;
 use Doctrine\DBAL\Driver\Exception;
 use Doctrine\DBAL\Exception\InvalidArgumentException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -84,10 +84,10 @@ class SessionHandler extends AbstractTable implements SessionHandlerInterface
     public function gc(int $maxLifetime): bool
     {
         $this->createQueryBuilder()
-             ->delete()
-             ->andWhere($this->getConnection()->getExpressionBuilder()->lte(self::EXPIRES_AT, ':now'))
+             ->delete($this->getTableName())
+             ->andWhere($this->getConnection()->createExpressionBuilder()->lte(self::EXPIRES_AT, ':now'))
              ->setParameter('now', new DateTimeImmutable(), Types::DATETIME_IMMUTABLE)
-             ->execute();
+             ->executeStatement();
 
         return true;
     }
@@ -116,8 +116,9 @@ class SessionHandler extends AbstractTable implements SessionHandlerInterface
     #[ReturnTypeWillChange]
     public function read(string $sessionId): string
     {
-        $stmt = $this->createReadQuery($sessionId, [self::SESSION_DATA])->execute();
-        if (\is_object($stmt) && \is_scalar(($fetchOne = $stmt->fetchOne()))) {
+        $stmt = $this->createReadQuery($sessionId, [self::SESSION_DATA])->executeQuery();
+        $fetchOne = $stmt->fetchOne();
+        if (\is_scalar($fetchOne) && $fetchOne !== false) {
             return (string)$fetchOne;
         }
         return '';
@@ -134,10 +135,10 @@ class SessionHandler extends AbstractTable implements SessionHandlerInterface
     protected function createReadQuery(string $sessionId, array $columns = [self::SESSION_DATA]): QueryBuilder
     {
         return $this->createQueryBuilder()
-                    ->select($columns)
-                    ->where($this->getConnection()->getExpressionBuilder()->eq(self::SESSION_ID, ':sessionId'))
+                    ->select(...$columns)
+                    ->where($this->getConnection()->createExpressionBuilder()->eq(self::SESSION_ID, ':sessionId'))
                     ->setParameter('sessionId', $sessionId)
-                    ->andWhere($this->getConnection()->getExpressionBuilder()->gt(self::EXPIRES_AT, ':now'))
+                    ->andWhere($this->getConnection()->createExpressionBuilder()->gt(self::EXPIRES_AT, ':now'))
                     ->setParameter('now', new DateTimeImmutable(), Types::DATETIME_IMMUTABLE);
     }
 
@@ -189,12 +190,8 @@ class SessionHandler extends AbstractTable implements SessionHandlerInterface
      */
     public function validateId(string $sessionId): bool
     {
-        $stmt = $this->createReadQuery($sessionId, [self::SESSION_ID])->execute();
-        if (\is_object($stmt)) {
-            return $stmt->fetchOne() === $sessionId;
-        }
-
-        return false;
+        $stmt = $this->createReadQuery($sessionId, [self::SESSION_ID])->executeQuery();
+        return $stmt->fetchOne() === $sessionId;
     }
 
     /**

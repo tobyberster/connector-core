@@ -6,10 +6,11 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\MappingTables;
 
-use Doctrine\DBAL\DBALException;
 use Doctrine\DBAL\Exception;
+use Doctrine\DBAL\Exception as DBALException;
 use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\SchemaException;
+use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Types\Types;
 use Jtl\Connector\Dbc\DbcRuntimeException;
 use Jtl\Connector\Dbc\DbManager;
@@ -91,7 +92,6 @@ class AbstractTableTest extends TestCase
         /** @var TableStub $tableStub */
         $tableStub   = $this->table;
         $tableSchema = $tableStub->getTableSchema();
-        $this->assertTrue($tableSchema->hasPrimaryKey());
         $primaryKey = $tableSchema->getPrimaryKey();
         $this->assertNotNull($primaryKey);
         $primaryColumns = $primaryKey->getColumns();
@@ -712,7 +712,7 @@ class AbstractTableTest extends TestCase
         $table->setEndpointColumn('test', Types::BINARY);
         $schema = $table->getTableSchema();
         $column = $schema->getColumn('test');
-        $this->assertEquals(Types::BINARY, $column->getType()->getName());
+        $this->assertEquals(Types::BINARY, Type::lookupName($column->getType()));
     }
 
     /**

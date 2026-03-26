@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\Dbc\Schema;
 
-use Doctrine\DBAL\DBALException;
-use Doctrine\DBAL\Schema\SchemaException;
+use Doctrine\DBAL\Exception as DBALException;
+use Doctrine\DBAL\Schema\Exception\ColumnDoesNotExist;
 use Exception;
 use Jtl\Connector\Dbc\DbcRuntimeException;
 use Jtl\Connector\Dbc\TableStub;
@@ -45,8 +45,7 @@ class TableRestrictionTest extends TestCase
      */
     public function testInitializationWithNotExistingColumn(): void
     {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionCode(SchemaException::COLUMN_DOESNT_EXIST);
+        $this->expectException(ColumnDoesNotExist::class);
         $tableSchema = $this->table->getTableSchema();
         new TableRestriction($tableSchema, 'yolo', 'c');
     }

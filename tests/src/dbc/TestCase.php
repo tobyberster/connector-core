@@ -6,12 +6,8 @@ namespace Jtl\Connector\Dbc;
 
 use Doctrine\DBAL\Exception;
 use Doctrine\DBAL\Exception as DBALException;
-use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Query\QueryBuilder;
-use Doctrine\DBAL\Result;
 use Jtl\UnitTest\TestCase as JtlTestCase;
-use PDO;
-use PDOException;
 use RuntimeException;
 use Throwable;
 
@@ -20,7 +16,6 @@ abstract class TestCase extends JtlTestCase
     public const TABLE_PREFIX = 'pre_';
     public const SCHEMA       = \TESTROOT . '/tmp/db.sqlite';
     protected TableStub|\Jtl\Connector\MappingTables\TableStub $table;
-    private PDO                                                $pdo;
     private DbManager                                          $dbManager;
 
     /**
@@ -63,14 +58,18 @@ abstract class TestCase extends JtlTestCase
     /**
      * @return DbManager
      * @throws DBALException
-     * @throws PDOException
-     * @throws RuntimeException|\Doctrine\DBAL\DBALException
+     * @throws RuntimeException
      */
     protected function getDBManager(): DbManager
     {
         if (!isset($this->dbManager)) {
+            $this->ensureSchemaDirectory();
             /** @var DbManagerStub $dbManagerStub */
-            $dbManagerStub   = DbManagerStub::createFromParams(['pdo' => $this->getPDO()], null, self::TABLE_PREFIX);
+            $dbManagerStub   = DbManagerStub::createFromParams(
+                ['driver' => 'pdo_sqlite', 'path' => self::SCHEMA],
+                null,
+                self::TABLE_PREFIX
+            );
             $this->dbManager = $dbManagerStub;
         }
 
@@ -78,28 +77,22 @@ abstract class TestCase extends JtlTestCase
     }
 
     /**
-     * @return PDO
+     * @return void
      * @throws RuntimeException
-     * @throws PDOException
      */
-    protected function getPDO(): PDO
+    protected function ensureSchemaDirectory(): void
     {
-        if (!isset($this->pdo)) {
-            if (
-                !\is_dir(\dirname(self::SCHEMA))
-                && !\mkdir($concurrentDirectory = \dirname(self::SCHEMA))
-                && !\is_dir($concurrentDirectory)
-            ) {
-                throw new RuntimeException(\sprintf('Directory "%s" was not created', $concurrentDirectory));
-            }
-
-            if (\file_exists(self::SCHEMA)) {
-                \unlink(self::SCHEMA);
-            }
-            $this->pdo = new PDO('sqlite:' . self::SCHEMA);
+        if (
+            !\is_dir(\dirname(self::SCHEMA))
+            && !\mkdir($concurrentDirectory = \dirname(self::SCHEMA))
+            && !\is_dir($concurrentDirectory)
+        ) {
+            throw new RuntimeException(\sprintf('Directory "%s" was not created', $concurrentDirectory));
         }
 
-        return $this->pdo;
+        if (\file_exists(self::SCHEMA)) {
+            \unlink(self::SCHEMA);
+        }
     }
 
     /**
@@ -110,17 +103,15 @@ abstract class TestCase extends JtlTestCase
      * @throws DBALException
      * @throws PDOException
      * @throws RuntimeException
-     * @throws Exception|\Doctrine\DBAL\DBALException
+     * @throws Exception|DBALException
      * @throws \Doctrine\DBAL\Driver\Exception
      */
     protected function countRows(string $tableName, array $conditions = []): int
     {
         $connection = $this->getDbManager()->getConnection();
 
-        /** @var AbstractPlatform $platform */
-        $platform = $connection->getDatabasePlatform();
-        $qb       = (new QueryBuilder($connection))
-            ->select($platform->getCountExpression('*'))
+        $qb = (new QueryBuilder($connection))
+            ->select('COUNT(*)')
             ->from($tableName);
 
         foreach ($conditions as $column => $value) {
@@ -129,10 +120,7 @@ abstract class TestCase extends JtlTestCase
                 ->setParameter($column, $value);
         }
 
-        $result = $qb->execute();
-        if ($result instanceof Result === false) {
-            throw new RuntimeException('unexpected Type, expected instance of Result');
-        }
+        $result = $qb->executeQuery();
 
         /** @var numeric-string $return */
         $return = $result->fetchOne();

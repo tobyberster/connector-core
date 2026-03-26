@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\Dbc;
 
-use Doctrine\DBAL\DBALException;
-use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception;
+use Doctrine\DBAL\Exception as DBALException;
 use Doctrine\DBAL\Schema\SchemaException;
 use Jtl\Connector\Dbc\Query\QueryBuilder;
 use Jtl\Connector\Dbc\Schema\TableRestriction;
-use Jtl\Connector\MappingTables\Validator;
 use PHPUnit\Framework\ExpectationFailedException;
 use SebastianBergmann\RecursionContext\InvalidArgumentException;
 use Throwable;
@@ -46,13 +44,11 @@ class ConnectionTest extends TestCase
         $this->assertEquals(1, $this->connection->insert($this->table->getTableName(), $data));
         $this->assertEquals(3, $this->countRows($this->table->getTableName()));
         $qb   = $this->connection->createQueryBuilder();
-        $stmt = $qb
-            ->select($this->table->getColumnNames())
+        $result = $qb
+            ->select(...$this->table->getColumnNames())
             ->from($this->table->getTableName())
             ->where(TableStub::A . ' = :a')
-            ->setParameter('a', 25)->execute();
-
-        $result = Validator::returnResult($stmt, 'stmt')->fetchAll();
+            ->setParameter('a', 25)->executeQuery()->fetchAllAssociative();
 
         $this->assertCount(1, $result);
         $this->assertArrayHasKey(0, $result);
@@ -90,13 +86,11 @@ class ConnectionTest extends TestCase
         $identifier = [TableStub::B => 'yolo'];
         $this->connection->update($this->table->getTableName(), $data, $identifier);
         $qb   = $this->connection->createQueryBuilder();
-        $stmt = $qb
-            ->select($this->table->getColumnNames())
+        $result = $qb
+            ->select(...$this->table->getColumnNames())
             ->from($this->table->getTableName())
             ->where(TableStub::A . ' = :a')
-            ->setParameter('a', 25)->execute();
-
-        $result = Validator::returnResult($stmt, 'stmt')->fetchAll();
+            ->setParameter('a', 25)->executeQuery()->fetchAllAssociative();
 
         $this->assertCount(1, $result);
         $this->assertArrayHasKey(0, $result);
@@ -128,12 +122,10 @@ class ConnectionTest extends TestCase
         $this->connection->delete($this->table->getTableName(), [TableStub::B => 'something else']);
         $this->assertEquals(1, $this->countRows($this->table->getTableName()));
         $qb   = $this->connection->createQueryBuilder();
-        $stmt = $qb
-            ->select($this->table->getColumnNames())
+        $result = $qb
+            ->select(...$this->table->getColumnNames())
             ->from($this->table->getTableName())
-            ->execute();
-
-        $result = Validator::returnResult($stmt, 'stmt')->fetchAll();
+            ->executeQuery()->fetchAllAssociative();
 
         $this->assertCount(0, $result);
     }
@@ -330,14 +322,12 @@ class ConnectionTest extends TestCase
 
         $this->assertEquals(1, $this->connection->update($this->table->getTableName(), $data, $identifier));
 
-        $stmt = $this->connection->createQueryBuilder()
-                                 ->select($this->table->getColumnNames())
+        $result = $this->connection->createQueryBuilder()
+                                 ->select(...$this->table->getColumnNames())
                                  ->from($this->table->getTableName())
                                  ->where(TableStub::ID . ' = :id')
                                  ->setParameter('id', 1)
-                                 ->execute();
-
-        $result = Validator::returnResult($stmt, 'stmt')->fetchAll();
+                                 ->executeQuery()->fetchAllAssociative();
 
         $this->assertCount(1, $result);
         $row = $result[0];
@@ -369,14 +359,12 @@ class ConnectionTest extends TestCase
         $identifier = [TableStub::ID => 3];
         $this->assertEquals(1, $this->connection->delete($this->table->getTableName(), $identifier));
 
-        $stmt = $this->connection->createQueryBuilder()
-                                 ->select($this->table->getColumnNames())
+        $result = $this->connection->createQueryBuilder()
+                                 ->select(...$this->table->getColumnNames())
                                  ->from($this->table->getTableName())
                                  ->where(TableStub::ID . ' = :id')
                                  ->setParameter('id', 3)
-                                 ->execute();
-
-        $result = Validator::returnResult($stmt, 'stmt')->fetchAll();
+                                 ->executeQuery()->fetchAllAssociative();
 
         $this->assertCount(0, $result);
         $this->assertEquals(1, $this->countRows($this->table->getTableName()));
@@ -394,13 +382,7 @@ class ConnectionTest extends TestCase
         $this->table = new TableStub($this->getDBManager());
         parent::setUp();
         $this->insertFixtures($this->table, self::getTableStubFixtures());
-        $params = [
-            'pdo'          => $this->getPDO(),
-            'wrapperClass' => Connection::class
-        ];
-        $config = null;
-        /** @var Connection $connection */
-        $connection       = DriverManager::getConnection($params, $config);
-        $this->connection = $connection;
+        $this->connection = $this->getDBManager()->getConnection();
+        $this->connection->clearTableRestrictions();
     }
 }

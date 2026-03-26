@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Jtl\Connector\Dbc\Session;
 
-use Doctrine\DBAL\Driver\DriverException;
 use Doctrine\DBAL\Exception as DBALException;
 use Doctrine\DBAL\Exception\InvalidArgumentException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Doctrine\DBAL\ForwardCompatibility\Result;
 use Doctrine\DBAL\Types\Type;
+use Doctrine\DBAL\Types\Types;
 use Exception;
 use Jtl\Connector\Dbc\Connection;
 use Jtl\Connector\Dbc\DbcRuntimeException;
@@ -51,7 +50,6 @@ class SessionHandlerTest extends TestCase
         $handler             = new SessionHandler($this->createMock(DbManager::class));
         $reflection          = new \ReflectionClass($handler);
         $reflMaxLifetimeProp = $reflection->getProperty('maxLifetime');
-        $reflMaxLifetimeProp->setAccessible(true);
         $this->assertEquals($expected, $reflMaxLifetimeProp->getValue($handler));
     }
 
@@ -126,7 +124,7 @@ class SessionHandlerTest extends TestCase
      * @throws DBALException
      * @throws DbcRuntimeException
      * @throws ExpectationFailedException
-     * @throws \Doctrine\DBAL\DBALException
+     * @throws DBALException
      * @throws \Doctrine\DBAL\Driver\Exception
      * @throws \PDOException
      * @throws \RuntimeException
@@ -147,7 +145,7 @@ class SessionHandlerTest extends TestCase
      * @throws DBALException
      * @throws DbcRuntimeException
      * @throws ExpectationFailedException
-     * @throws \Doctrine\DBAL\DBALException
+     * @throws DBALException
      * @throws \Doctrine\DBAL\Driver\Exception
      * @throws \RuntimeException
      * @throws \SebastianBergmann\RecursionContext\InvalidArgumentException
@@ -186,7 +184,7 @@ class SessionHandlerTest extends TestCase
      * @throws OriginalConstructorInvocationRequiredException
      * @throws ReflectionException
      * @throws UnknownTypeException
-     * @throws \Doctrine\DBAL\DBALException
+     * @throws DBALException
      * @throws \PDOException
      * @throws \PHPUnit\Framework\Exception
      * @throws \PHPUnit\Framework\InvalidArgumentException
@@ -209,8 +207,8 @@ class SessionHandlerTest extends TestCase
             ->method('insert')
             ->willThrowException(
                 new UniqueConstraintViolationException(
-                    'Duplicate Key entry',
-                    $this->createMock(DriverException::class)
+                    $this->createMock(\Doctrine\DBAL\Driver\Exception::class),
+                    null
                 )
             );
 
@@ -251,7 +249,7 @@ class SessionHandlerTest extends TestCase
      * @throws MockRuntimeException
      * @throws OriginalConstructorInvocationRequiredException
      * @throws UnknownTypeException
-     * @throws \Doctrine\DBAL\DBALException
+     * @throws DBALException
      * @throws \PDOException
      * @throws \PHPUnit\Framework\InvalidArgumentException
      * @throws \PHPUnit\Framework\MockObject\ReflectionException
@@ -295,7 +293,7 @@ class SessionHandlerTest extends TestCase
      * @throws DbcRuntimeException
      * @throws ExpectationFailedException
      * @throws InvalidArgumentException
-     * @throws \Doctrine\DBAL\DBALException
+     * @throws DBALException
      * @throws \Doctrine\DBAL\Driver\Exception
      * @throws \PDOException
      * @throws \RuntimeException
@@ -324,7 +322,7 @@ class SessionHandlerTest extends TestCase
      * @throws DBALException
      * @throws DbcRuntimeException
      * @throws ExpectationFailedException
-     * @throws \Doctrine\DBAL\DBALException
+     * @throws DBALException
      * @throws \Doctrine\DBAL\Driver\Exception
      * @throws \PDOException
      * @throws \RuntimeException
@@ -426,7 +424,7 @@ class SessionHandlerTest extends TestCase
      * @throws DbcRuntimeException
      * @throws ExpectationFailedException
      * @throws ReflectionException
-     * @throws \Doctrine\DBAL\DBALException
+     * @throws DBALException
      * @throws \PDOException
      * @throws \RuntimeException
      * @throws \SebastianBergmann\RecursionContext\InvalidArgumentException
@@ -457,16 +455,12 @@ class SessionHandlerTest extends TestCase
             ->from($this->handler->getTableName())
             ->where(\sprintf('%s = :sessionId', SessionHandler::SESSION_ID))
             ->setParameter('sessionId', $sessionId)
-            ->execute();
-
-        if ($stmt instanceof Result === false) {
-            throw new \RuntimeException('$stmt must be instance of ' . Result::class);
-        }
+            ->executeQuery();
 
         /** @var \DateTimeImmutable $expiresAt */
-        $expiresAt = Type::getType(Type::DATETIME_IMMUTABLE)
+        $expiresAt = Type::getType(Types::DATETIME_IMMUTABLE)
                          ->convertToPHPValue(
-                             $stmt->fetchColumn(),
+                             $stmt->fetchOne(),
                              $this->getDBManager()->getConnection()->getDatabasePlatform()
                          );
 

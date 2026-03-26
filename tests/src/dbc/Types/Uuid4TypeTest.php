@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Jtl\Connector\Dbc\Types;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
-use Doctrine\DBAL\Platforms\MariaDb1027Platform;
-use Doctrine\DBAL\Platforms\MySQL57Platform;
+use Doctrine\DBAL\Platforms\MariaDBPlatform;
 use Doctrine\DBAL\Platforms\MySQL80Platform;
-use Doctrine\DBAL\Platforms\MySqlPlatform;
-use Doctrine\DBAL\Platforms\SqlitePlatform;
+use Doctrine\DBAL\Platforms\MySQLPlatform;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Doctrine\DBAL\Types\ConversionException;
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
@@ -27,28 +26,6 @@ use SebastianBergmann\RecursionContext\InvalidArgumentException;
 
 class Uuid4TypeTest extends TestCase
 {
-    /**
-     * @return void
-     * @throws InvalidMethodNameException
-     * @throws ClassIsFinalException
-     * @throws ExpectationFailedException
-     * @throws \PHPUnit\Framework\InvalidArgumentException
-     * @throws DuplicateMethodException
-     * @throws RuntimeException
-     * @throws ClassIsReadonlyException
-     * @throws ReflectionException
-     * @throws UnknownTypeException
-     * @throws OriginalConstructorInvocationRequiredException
-     * @throws InvalidArgumentException
-     * @throws ClassAlreadyExistsException
-     */
-    public function testRequiresSQLCommentHint(): void
-    {
-        $platform = $this->createMock(AbstractPlatform::class);
-        $type     = new Uuid4Type();
-        $this->assertTrue($type->requiresSQLCommentHint($platform));
-    }
-
     /**
      * @dataProvider convertToDatabaseValueProvider
      *
@@ -177,11 +154,10 @@ class Uuid4TypeTest extends TestCase
     public function convertToPHPValueSQLProvider(): array
     {
         return [
-            [new MySqlPlatform(), 'foo', 'LOWER(HEX(foo))'],
-            [new MariaDb1027Platform(), 'bar', 'LOWER(HEX(bar))'],
-            [new MySQL57Platform(), 'foobar', 'LOWER(HEX(foobar))'],
+            [new MySQLPlatform(), 'foo', 'LOWER(HEX(foo))'],
+            [new MariaDBPlatform(), 'bar', 'LOWER(HEX(bar))'],
             [new MySQL80Platform(), 'yeeha', 'LOWER(HEX(yeeha))'],
-            [new SqlitePlatform(), 'rofl', 'LOWER(HEX(rofl))'],
+            [new SQLitePlatform(), 'rofl', 'LOWER(HEX(rofl))'],
             [$this->getMockForAbstractClass(AbstractPlatform::class), 'abcde', 'abcde'],
         ];
     }
